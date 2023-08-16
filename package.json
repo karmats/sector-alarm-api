@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/karmats/sector-alarm-api/issues"
   },
-  "homepage": "https://github.com/karmats/sector-alarm-api#readme"
+  "homepage": "https://github.com/karmats/sector-alarm-api#readme",
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  }
 }
