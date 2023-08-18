@@ -1,1 +1,3 @@
-console.log("Hello world");
+import { SectorAlarmApi } from "./api/SectorAlarmApi";
+
+export default SectorAlarmApi;
