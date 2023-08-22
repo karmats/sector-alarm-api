@@ -28,11 +28,11 @@ export class SectorAlarmApi {
     private device: DeviceInfo
   ) {}
 
-  private authenticateToSectorAlarm(): Promise<SectorAlarmMeta> {
+  private async authenticateToSectorAlarm(): Promise<SectorAlarmMeta> {
     return fetch(`${SectorAlarmApi.BASE_URL}/User/Login`, {
       method: "GET",
-    }).then((response) => {
-      return new Promise<SectorAlarmMeta>(async (resolve, reject) => {
+    })
+      .then(async (response) => {
         let content = await response.text();
         if (content) {
           const versionRegex = /<script src="\/Scripts\/main.js\?(v.*)"/g;
@@ -40,14 +40,15 @@ export class SectorAlarmApi {
           const versionResult = versionRegex.exec(content);
           const version = versionResult ? versionResult[1] : null;
           if (version && cookie) {
-            return { cookie, version };
+            return Promise.resolve({ cookie, version });
           } else {
-            throw new Error("Failed to retrieve session meta.");
+            return Promise.reject("Failed to retrieve session meta.");
           }
         } else {
-          throw new Error("Response did not have a text");
+          return Promise.reject("Response did not have a text");
         }
-      }).then((meta) => {
+      })
+      .then((meta) => {
         const verficationToken = meta.cookie
           .split(";")
           .find((c) =>
@@ -89,6 +90,41 @@ export class SectorAlarmApi {
           throw new Error("Something went work");
         }
       });
+  }
+
+  /**
+   * Get cookie and version for calls to api
+   */
+  private async getSessionMeta(): Promise<SectorAlarmMeta> {
+    return new Promise((resolve) => {
+      if (!this.cookie) {
+        resolve(this.authenticateToSectorAlarm());
+      } else {
+        const sessionMeta: SectorAlarmMeta = JSON.parse(this.cookie);
+        // Check that the cookie hasn't expired. If it has, re-authenticate
+        fetch(`${SectorAlarmApi.BASE_URL}/User/GetUserInfo`, {
+          method: "GET",
+          headers: this.headers(sessionMeta.cookie),
+        })
+          .then((response) => {
+            if (response.status === 200) {
+              resolve(sessionMeta);
+            } else {
+              resolve(this.authenticateToSectorAlarm());
+            }
+          })
+          .catch((e) => {
+            resolve(this.authenticateToSectorAlarm());
+          });
+      }
     });
+  }
+
+  private headers(cookie: string) {
+    return {
+      Accept: "application/json",
+      "Content-type": "application/json",
+      Cookie: cookie,
+    };
   }
 }
