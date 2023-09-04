@@ -15,12 +15,18 @@ interface SectorAlarmMeta {
   version: string;
   cookie: string;
 }
+type ArmedStatus = "full" | "partial" | "off" | "unknown";
+interface HomeAlarmInfo {
+  status: ArmedStatus;
+  online: boolean;
+  time: Date | number;
+}
 
 export class SectorAlarmApi {
   private static BASE_URL = "https://mypagesapi.sectoralarm.net";
   private static REQUEST_VERIFICATON_TOKEN_NAME = "__RequestVerificationToken";
 
-  private cookie: string;
+  private cookie = "";
 
   constructor(
     private username: string,
@@ -120,11 +126,62 @@ export class SectorAlarmApi {
     });
   }
 
+  /**
+   * Get house alarm status. If there are more than one alarm registered only the first will be returned.
+   */
+  public async getAlarmStatus(): Promise<HomeAlarmInfo> {
+    return this.getSessionMeta().then((meta) => {
+      return fetch(`${SectorAlarmApi.BASE_URL}/Panel/GetPanelList`, {
+        headers: this.headers(meta.cookie),
+      })
+        .then((response) => response.json() as Promise<SectorAlarmInfo[]>)
+        .then((json) => {
+          if (json && json.length) {
+            const info = json
+              .map((j) => ({
+                status: this.armedStatusToAlarmStatus(j.ArmedStatus),
+                online: j.IsOnline,
+                time: this.sectorAlarmDateToMs(j.PanelTime),
+              }))
+              .pop() as HomeAlarmInfo;
+            console.log(`Got alarm info status '${info?.status}'`);
+            return info;
+          } else {
+            const error = "Expected at least one alarm, got zero";
+            console.log(error);
+            throw new Error(error);
+          }
+        })
+        .catch((e) => {
+          console.error(`Get alarm status failed: "${e.toString()}"`);
+          throw e;
+        });
+    });
+  }
+
   private headers(cookie: string) {
     return {
       Accept: "application/json",
       "Content-type": "application/json",
       Cookie: cookie,
     };
+  }
+
+  private armedStatusToAlarmStatus(armedStatus: string): ArmedStatus {
+    switch (armedStatus) {
+      case "armed":
+        return "full";
+      case "partialarmed":
+        return "partial";
+      case "disarmed":
+        return "off";
+      default:
+        return "unknown";
+    }
+  }
+
+  private sectorAlarmDateToMs(date: string): number {
+    const ms = /\/Date\((-?\d*)\)\//.exec(date);
+    return ms && ms[1] ? +ms[1] : -1;
   }
 }
