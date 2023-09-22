@@ -1,26 +1,12 @@
-interface DeviceInfo {
-  pin: string;
-  deviceId: string;
-}
-interface SectorAlarmInfo {
-  ArmedStatus: string;
-  IsOnline: boolean;
-  PanelTime: string;
-}
-interface SectorAlarmTemperature {
-  Label: string;
-  Temprature: string;
-}
-interface SectorAlarmMeta {
-  version: string;
-  cookie: string;
-}
-type ArmedStatus = "full" | "partial" | "off" | "unknown";
-interface HomeAlarmInfo {
-  status: ArmedStatus;
-  online: boolean;
-  time: Date | number;
-}
+import {
+  ArmedStatus,
+  DeviceInfo,
+  HomeAlarmInfo,
+  SectorAlarmInfo,
+  SectorAlarmMeta,
+  SectorAlarmTemperature,
+  Temperature,
+} from "./types";
 
 export class SectorAlarmApi {
   private static BASE_URL = "https://mypagesapi.sectoralarm.net";
@@ -158,6 +144,78 @@ export class SectorAlarmApi {
         });
     });
   }
+
+  /**
+   * Get temperatures from sensors in the house
+   */
+  public async getTemperatures(): Promise<Temperature[]> {
+    return this.getSessionMeta().then((meta) => {
+      return fetch(`${SectorAlarmApi.BASE_URL}/Panel/GetTempratures`, {
+        method: "POST",
+        body: JSON.stringify({
+          id: this.device.deviceId,
+          Version: meta.version,
+        }),
+        headers: this.headers(meta.cookie),
+      })
+        .then(
+          (response) => response.json() as Promise<SectorAlarmTemperature[]>
+        )
+        .then((json) => {
+          if (json && json.length) {
+            return json.map(
+              (j) =>
+                ({
+                  location: j.Label,
+                  value: +j.Temprature,
+                  scale: "C",
+                } as Temperature)
+            );
+          } else {
+            const error = `Failed to retrieve temparatures got response '${JSON.stringify(
+              json
+            )}'`;
+            console.error(error);
+            throw new Error(error);
+          }
+        })
+        .catch((e) => {
+          console.error(`Get temperatures failed: "${e.toString()}"`);
+          throw e;
+        });
+    });
+  }
+
+  /** Toggle alarm. If alarm is off, partial alarm is set. If alarm is set to full, nothing is done. Otherwise the alarm turns off */
+  toggleAlarm = async (): Promise<HomeAlarmInfo> => {
+    return this.getAlarmStatus().then(async (info) => {
+      if (info.status === "full") {
+        return info;
+      }
+      const armCmd = info.status === "off" ? "Partial" : "Disarm";
+      return this.getSessionMeta().then(async (meta) => {
+        return fetch(`${SectorAlarmApi.BASE_URL}/Panel/ArmPanel`, {
+          method: "POST",
+          body: JSON.stringify({
+            ArmCmd: armCmd,
+            PanelCode: this.device.pin,
+            HasLocks: false,
+            id: this.device.deviceId,
+          }),
+          headers: this.headers(meta.cookie),
+        })
+          .then(
+            (response) =>
+              response.json() as Promise<{ panelData: SectorAlarmInfo }>
+          )
+          .then((json) => ({
+            status: this.armedStatusToAlarmStatus(json.panelData.ArmedStatus),
+            online: json.panelData.IsOnline,
+            time: this.sectorAlarmDateToMs(json.panelData.PanelTime),
+          }));
+      });
+    });
+  };
 
   private headers(cookie: string) {
     return {
