@@ -15,7 +15,7 @@ export interface SectorAlarmMeta {
   version: string;
   cookie: string;
 }
-export type ArmedStatus = "full" | "partial" | "off" | "unknown";
+export type ArmedStatus = 'full' | 'partial' | 'off' | 'unknown';
 export interface HomeAlarmInfo {
   status: ArmedStatus;
   online: boolean;
@@ -24,5 +24,5 @@ export interface HomeAlarmInfo {
 export interface Temperature {
   location: string;
   value: number;
-  scale: "C" | "F";
+  scale: 'C' | 'F';
 }

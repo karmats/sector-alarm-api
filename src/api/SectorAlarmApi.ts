@@ -6,13 +6,13 @@ import {
   SectorAlarmMeta,
   SectorAlarmTemperature,
   Temperature,
-} from "./types";
+} from './types';
 
 export class SectorAlarmApi {
-  private static BASE_URL = "https://mypagesapi.sectoralarm.net";
-  private static REQUEST_VERIFICATON_TOKEN_NAME = "__RequestVerificationToken";
+  private static BASE_URL = 'https://mypagesapi.sectoralarm.net';
+  private static REQUEST_VERIFICATON_TOKEN_NAME = '__RequestVerificationToken';
 
-  private cookie = "";
+  private cookie = '';
 
   constructor(
     private username: string,
@@ -22,48 +22,44 @@ export class SectorAlarmApi {
 
   private async authenticateToSectorAlarm(): Promise<SectorAlarmMeta> {
     return fetch(`${SectorAlarmApi.BASE_URL}/User/Login`, {
-      method: "GET",
+      method: 'GET',
     })
       .then(async (response) => {
         let content = await response.text();
         if (content) {
           const versionRegex = /<script src="\/Scripts\/main.js\?(v.*)"/g;
-          const cookie = response.headers.get("set-cookie");
+          const cookie = response.headers.get('set-cookie');
           const versionResult = versionRegex.exec(content);
           const version = versionResult ? versionResult[1] : null;
           if (version && cookie) {
             return Promise.resolve({ cookie, version });
           } else {
-            return Promise.reject("Failed to retrieve session meta.");
+            return Promise.reject('Failed to retrieve session meta.');
           }
         } else {
-          return Promise.reject("Response did not have a text");
+          return Promise.reject('Response did not have a text');
         }
       })
       .then((meta) => {
         const verficationToken = meta.cookie
-          .split(";")
-          .find((c) =>
-            c.startsWith(SectorAlarmApi.REQUEST_VERIFICATON_TOKEN_NAME)
-          );
-        const token = verficationToken && verficationToken.split("=")[1];
+          .split(';')
+          .find((c) => c.startsWith(SectorAlarmApi.REQUEST_VERIFICATON_TOKEN_NAME));
+        const token = verficationToken && verficationToken.split('=')[1];
 
         if (token) {
           const formdata = new FormData();
-          formdata.append("userID", this.username);
-          formdata.append("password", this.password);
+          formdata.append('userID', this.username);
+          formdata.append('password', this.password);
           formdata.append(SectorAlarmApi.REQUEST_VERIFICATON_TOKEN_NAME, token);
 
           return fetch(`${SectorAlarmApi.BASE_URL}/User/Login`, {
-            method: "post",
+            method: 'post',
             body: formdata,
           }).then((response) => {
             if (response.status !== 302) {
-              throw new Error(
-                `Expected 302 response code, instead got ${response.status}.`
-              );
+              throw new Error(`Expected 302 response code, instead got ${response.status}.`);
             } else {
-              const setCookieHeader = response.headers.get("set-cookie");
+              const setCookieHeader = response.headers.get('set-cookie');
               if (setCookieHeader && setCookieHeader.length) {
                 const sessionMeta = {
                   cookie: setCookieHeader[0],
@@ -72,14 +68,12 @@ export class SectorAlarmApi {
                 this.cookie = JSON.stringify(sessionMeta);
                 return sessionMeta;
               } else {
-                throw new Error(
-                  `Expected set-cookie header to be defined, ${setCookieHeader}`
-                );
+                throw new Error(`Expected set-cookie header to be defined, ${setCookieHeader}`);
               }
             }
           });
         } else {
-          throw new Error("Something went work");
+          throw new Error('Something went work');
         }
       });
   }
@@ -95,7 +89,7 @@ export class SectorAlarmApi {
         const sessionMeta: SectorAlarmMeta = JSON.parse(this.cookie);
         // Check that the cookie hasn't expired. If it has, re-authenticate
         fetch(`${SectorAlarmApi.BASE_URL}/User/GetUserInfo`, {
-          method: "GET",
+          method: 'GET',
           headers: this.headers(sessionMeta.cookie),
         })
           .then((response) => {
@@ -133,7 +127,7 @@ export class SectorAlarmApi {
             console.log(`Got alarm info status '${info?.status}'`);
             return info;
           } else {
-            const error = "Expected at least one alarm, got zero";
+            const error = 'Expected at least one alarm, got zero';
             console.log(error);
             throw new Error(error);
           }
@@ -151,16 +145,14 @@ export class SectorAlarmApi {
   public async getTemperatures(): Promise<Temperature[]> {
     return this.getSessionMeta().then((meta) => {
       return fetch(`${SectorAlarmApi.BASE_URL}/Panel/GetTempratures`, {
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify({
           id: this.device.deviceId,
           Version: meta.version,
         }),
         headers: this.headers(meta.cookie),
       })
-        .then(
-          (response) => response.json() as Promise<SectorAlarmTemperature[]>
-        )
+        .then((response) => response.json() as Promise<SectorAlarmTemperature[]>)
         .then((json) => {
           if (json && json.length) {
             return json.map(
@@ -168,13 +160,11 @@ export class SectorAlarmApi {
                 ({
                   location: j.Label,
                   value: +j.Temprature,
-                  scale: "C",
-                } as Temperature)
+                  scale: 'C',
+                }) as Temperature
             );
           } else {
-            const error = `Failed to retrieve temparatures got response '${JSON.stringify(
-              json
-            )}'`;
+            const error = `Failed to retrieve temparatures got response '${JSON.stringify(json)}'`;
             console.error(error);
             throw new Error(error);
           }
@@ -189,13 +179,13 @@ export class SectorAlarmApi {
   /** Toggle alarm. If alarm is off, partial alarm is set. If alarm is set to full, nothing is done. Otherwise the alarm turns off */
   toggleAlarm = async (): Promise<HomeAlarmInfo> => {
     return this.getAlarmStatus().then(async (info) => {
-      if (info.status === "full") {
+      if (info.status === 'full') {
         return info;
       }
-      const armCmd = info.status === "off" ? "Partial" : "Disarm";
+      const armCmd = info.status === 'off' ? 'Partial' : 'Disarm';
       return this.getSessionMeta().then(async (meta) => {
         return fetch(`${SectorAlarmApi.BASE_URL}/Panel/ArmPanel`, {
-          method: "POST",
+          method: 'POST',
           body: JSON.stringify({
             ArmCmd: armCmd,
             PanelCode: this.device.pin,
@@ -204,10 +194,7 @@ export class SectorAlarmApi {
           }),
           headers: this.headers(meta.cookie),
         })
-          .then(
-            (response) =>
-              response.json() as Promise<{ panelData: SectorAlarmInfo }>
-          )
+          .then((response) => response.json() as Promise<{ panelData: SectorAlarmInfo }>)
           .then((json) => ({
             status: this.armedStatusToAlarmStatus(json.panelData.ArmedStatus),
             online: json.panelData.IsOnline,
@@ -219,22 +206,22 @@ export class SectorAlarmApi {
 
   private headers(cookie: string) {
     return {
-      Accept: "application/json",
-      "Content-type": "application/json",
+      Accept: 'application/json',
+      'Content-type': 'application/json',
       Cookie: cookie,
     };
   }
 
   private armedStatusToAlarmStatus(armedStatus: string): ArmedStatus {
     switch (armedStatus) {
-      case "armed":
-        return "full";
-      case "partialarmed":
-        return "partial";
-      case "disarmed":
-        return "off";
+      case 'armed':
+        return 'full';
+      case 'partialarmed':
+        return 'partial';
+      case 'disarmed':
+        return 'off';
       default:
-        return "unknown";
+        return 'unknown';
     }
   }
 

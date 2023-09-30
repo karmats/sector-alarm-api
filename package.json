@@ -4,8 +4,9 @@
   "description": "Node api for communication with sector alarm",
   "main": "index.ts",
   "scripts": {
-    "build":"tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,7 @@
   },
   "homepage": "https://github.com/karmats/sector-alarm-api#readme",
   "devDependencies": {
+    "prettier": "^3.0.3",
     "typescript": "^5.1.6"
   }
 }
