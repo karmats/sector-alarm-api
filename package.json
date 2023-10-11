@@ -2,10 +2,9 @@
   "name": "sector-alarm-api",
   "version": "0.0.1",
   "description": "Node api for communication with sector alarm",
-  "main": "index.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc ./src/index.ts",
+    "build": "tsc",
     "test": "vitest --globals",
     "format": "prettier --write src/**/*.ts"
   },
