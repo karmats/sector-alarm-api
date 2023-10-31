@@ -60,7 +60,7 @@ export class SectorAlarmApi {
           return Promise.reject('Response did not have a text');
         }
       })
-      .then((meta) => {
+      .then(async (meta) => {
         const verficationToken = meta.cookie
           .split(';')
           .find((c) => c.startsWith(SectorAlarmApi.REQUEST_VERIFICATON_TOKEN_NAME));
@@ -72,26 +72,25 @@ export class SectorAlarmApi {
           formdata.append('password', this.password);
           formdata.append(SectorAlarmApi.REQUEST_VERIFICATON_TOKEN_NAME, token);
 
-          return fetch(`${SectorAlarmApi.BASE_URL}/User/Login`, {
+          const response = await fetch(`${SectorAlarmApi.BASE_URL}/User/Login`, {
             method: 'post',
             body: formdata,
-          }).then((response) => {
-            if (response.status !== 302) {
-              throw new Error(`Expected 302 response code, instead got ${response.status}.`);
-            } else {
-              const setCookieHeader = response.headers.get('set-cookie');
-              if (setCookieHeader && setCookieHeader.length) {
-                const sessionMeta = {
-                  cookie: setCookieHeader[0],
-                  version: meta.version,
-                };
-                this.cookie = JSON.stringify(sessionMeta);
-                return sessionMeta;
-              } else {
-                throw new Error(`Expected set-cookie header to be defined, ${setCookieHeader}`);
-              }
-            }
           });
+          if (response.status !== 302) {
+            throw new Error(`Expected 302 response code, instead got ${response.status}.`);
+          } else {
+            const setCookieHeader = response.headers.get('set-cookie');
+            if (setCookieHeader && setCookieHeader.length) {
+              const sessionMeta = {
+                cookie: setCookieHeader[0],
+                version: meta.version,
+              };
+              this.cookie = JSON.stringify(sessionMeta);
+              return sessionMeta;
+            } else {
+              throw new Error(`Expected set-cookie header to be defined, ${setCookieHeader}`);
+            }
+          }
         } else {
           throw new Error('Something went work');
         }
@@ -119,7 +118,7 @@ export class SectorAlarmApi {
               resolve(this.authenticateToSectorAlarm());
             }
           })
-          .catch((e) => {
+          .catch(() => {
             resolve(this.authenticateToSectorAlarm());
           });
       }
